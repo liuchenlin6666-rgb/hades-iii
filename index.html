@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#15111d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="冥界挽歌">
+
+<title>HADES III：冥界挽歌</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100d18;color:#f0e3d0;font-family:Georgia,"Noto Serif SC",serif;touch-action:none}canvas{position:fixed;inset:0;width:100%;height:100%}
+#hud{position:fixed;inset:0;padding:calc(env(safe-area-inset-top) + 9px) 14px calc(env(safe-area-inset-bottom) + 12px);pointer-events:none}
+.top{display:flex;justify-content:space-between;text-shadow:0 2px 7px #000}.brand{font-size:10px;letter-spacing:2px;color:#d9b77d}.room{font:12px system-ui;margin-top:5px;color:#e4d1b3}.stats{text-align:right;font:11px/1.7 system-ui}.bar{width:125px;height:7px;border:1px solid #9a7959;border-radius:8px;background:#302536;overflow:hidden;margin:2px 0 4px auto}.fill{height:100%;width:100%;background:linear-gradient(90deg,#a22d45,#e77d67)}#xp{background:linear-gradient(90deg,#758eaf,#d7d9e4);width:0}
+#hint{position:absolute;top:18%;left:50%;transform:translateX(-50%);font:12px system-ui;letter-spacing:1px;color:#e6d0a8;text-shadow:0 2px 8px #000;white-space:nowrap}
+#controls{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 14px);left:0;right:0;display:flex;align-items:end;justify-content:space-between;padding:0 17px;pointer-events:auto}
+#stick{width:112px;height:112px;border-radius:50%;border:1px solid #bba17b66;background:#d9c8a011;position:relative;touch-action:none}#nub{position:absolute;width:46px;height:46px;left:32px;top:32px;border-radius:50%;border:1px solid #ead7b599;background:#d7c29c66}
+.actions{display:flex;gap:12px;align-items:end}button{color:#f5e7d2;font-family:system-ui;border:1px solid #c6a36e;background:#392638;touch-action:none}#attack{width:76px;height:76px;border-radius:50%;background:radial-gradient(#a74c45,#51293c);font-size:13px}#dash{width:58px;height:58px;border-radius:50%;background:radial-gradient(#516c83,#26384d);font-size:11px}
+#toast{position:absolute;bottom:165px;left:50%;transform:translateX(-50%);font:12px system-ui;background:#211a2ddd;border:1px solid #8b7154;padding:8px 13px;opacity:0;white-space:nowrap}
+.overlay{position:fixed;inset:0;background:#0d0a14eF;display:flex;align-items:center;justify-content:center;padding:20px;z-index:5}.panel{width:min(460px,100%);max-height:90%;overflow:auto;padding:23px 20px;border:1px solid #987a55;background:linear-gradient(145deg,#2a2032,#17121f);box-shadow:0 18px 70px #000b}.eyebrow{font:10px system-ui;letter-spacing:2px;color:#c5a574;margin-bottom:14px}h1{font-size:27px;line-height:1.2;color:#f1d29a;margin:0 0 8px}h2{font-size:18px;color:#edc887;margin:0 0 10px}p{font:13px/1.7 system-ui;color:#d8cbb8}.muted{font:11px/1.6 system-ui;color:#a99a88}button.pick,button.primary{display:block;width:100%;padding:12px;margin:7px 0;text-align:left;font:13px/1.5 system-ui;background:#30283a;border:1px solid #8e7556}button.primary{text-align:center;background:linear-gradient(90deg,#87413e,#a75b46);border-color:#d4a66e;font-weight:700;letter-spacing:1px}.hidden{display:none!important}
+@media(min-width:700px){#controls{max-width:700px;left:50%;transform:translateX(-50%)}}
+</style></head><body><canvas id="c"></canvas><div id="hud">
+<div class="top"><div><div class="brand">HADES III · ELEGY OF THE UNDERWORLD</div><div class="room" id="room">冥河边境 · 第 1 室</div></div><div class="stats"><div id="hptext">生命 100 / 100</div><div class="bar"><div class="fill" id="hp"></div></div><div id="xptext">等级 1 · 经验 0/30</div><div class="bar"><div class="fill" id="xp"></div></div></div></div>
+<div id="hint">左侧移动 · 右侧攻击 · 蓝色按钮闪避</div><div id="controls"><div id="stick"><div id="nub"></div></div><div class="actions"><button id="dash">闪避</button><button id="attack">攻击</button></div></div><div id="toast"></div></div>
+<div class="overlay" id="overlay"><div class="panel" id="panel"><div class="eyebrow">AN ORIGINAL MYTHOLOGICAL ACTION ROGUELIKE</div><h1>HADES III<br>冥界挽歌</h1><p>传奇女猎手阿塔兰忒踏入冥界。冥河的潮声之下，有人正在抹去命运的名字。</p><p>第二阶段战斗切片：三种武器、闪避、精英敌人、区域守卫战、神明祝福与本地存档。</p><button class="primary" id="begin">开始试炼</button><div class="muted">开发版本 0.2 · 当前仍非完整 5 小时成品</div></div></div>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id),c=$("c"),g=c.getContext("2d"),overlay=$("overlay"),panel=$("panel");
+let w,h,dpr,raf,last=0,running=false,paused=false,tick=0,shake=0;
+const S={room:1,level:1,xp:0,next:32,hp:110,max:110,kills:0,coins:0,weapon:"月影双刃",damage:19,attackRate:.34,range:300,boons:[],dashCd:0};
+const P={x:0,y:0,r:15,speed:205,inv:0,cd:0,face:0,dash:0};
+let enemies=[],projectiles=[],fx=[],input={x:0,y:0},held=false,spawn=0,spawnClock=0,roomKills=0,bossSpawned=false;
+const weapons=[
+ {name:"月影双刃",desc:"快速近战飞刃，攻速快、射程中等。",dmg:19,rate:.34,range:300,speed:540},
+ {name:"狩猎神弓",desc:"远程穿透箭矢，伤害更高但攻击较慢。",dmg:31,rate:.68,range:470,speed:700},
+ {name:"冥王长枪",desc:"重型长枪，攻击范围广，单次伤害高。",dmg:43,rate:.92,range:360,speed:470}
+];
+const gods=[
+ ["雅典娜","猫头鹰的守护","最大生命 +24，并恢复 24 生命",()=>{S.max+=24;S.hp=Math.min(S.max,S.hp+24)}],
+ ["阿尔忒弥斯","月下追猎","伤害 +28%",()=>S.damage=Math.round(S.damage*1.28)],
+ ["赫尔墨斯","疾风步","移动速度 +18%，攻击间隔缩短 10%",()=>{P.speed*=1.18;S.attackRate*=.9}],
+ ["宙斯","雷霆回响","攻击命中时追加闪电伤害",()=>S.boons.push("lightning")],
+ ["阿瑞斯","血色誓约","伤害 +42%，最大生命 -12",()=>{S.damage=Math.round(S.damage*1.42);S.max=Math.max(35,S.max-12);S.hp=Math.min(S.hp,S.max)}],
+ ["波塞冬","海潮冲击","攻击命中时击退敌人",()=>S.boons.push("knockback")],
+ ["阿芙洛狄忒","迷醉之息","受到伤害降低 20%",()=>S.boons.push("charm")],
+ ["赫菲斯托斯","熔炉之心","射程 +25%，伤害 +12%",()=>{S.range*=1.25;S.damage=Math.round(S.damage*1.12)}],
+ ["德墨忒尔","霜寒之种","敌人移动速度降低 15%",()=>S.boons.push("frost")],
+ ["赫拉","王后敕令","每击败 5 个敌人恢复 8 生命",()=>S.boons.push("regal")]
+];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*dpr;c.height=h*dpr;c.style.width=w+"px";c.style.height=h+"px";g.setTransform(dpr,0,0,dpr,0,0);if(!P.x){P.x=w/2;P.y=h*.52}}addEventListener("resize",resize);resize();
+const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function toast(s){$("toast").textContent=s;$("toast").style.opacity=1;clearTimeout(toast.tm);toast.tm=setTimeout(()=>$("toast").style.opacity=0,1400)}
+function persist(){try{localStorage.setItem("h3v2",JSON.stringify({room:S.room,level:S.level,xp:S.xp,next:S.next,hp:S.hp,max:S.max,kills:S.kills,coins:S.coins,weapon:S.weapon,damage:S.damage,attackRate:S.attackRate,range:S.range,boons:S.boons}))}catch(e){}}
+function restore(){try{let v=JSON.parse(localStorage.getItem("h3v2")||"null");if(v)Object.assign(S,v)}catch(e){}}
+function showWeaponSelect(){panel.innerHTML=`<div class="eyebrow">CHOOSE YOUR FATE</div><h2>选择初始武器</h2><p>武器决定攻击节奏。之后的祝福会改变你的构筑方向。</p>${weapons.map((x,i)=>`<button class="pick" data-w="${i}"><b>${x.name}</b><br><span class="muted">${x.desc}</span></button>`).join("")}`;panel.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{let v=weapons[+b.dataset.w];S.weapon=v.name;S.damage=v.dmg;S.attackRate=v.rate;S.range=v.range;S.projectileSpeed=v.speed;beginRun()})}
+function beginRun(){overlay.classList.add("hidden");running=true;P.x=w/2;P.y=h*.52;startRoom();last=performance.now();requestAnimationFrame(loop)}
+$("begin").onclick=()=>{restore();if(!S.weapon||!weapons.some(x=>x.name===S.weapon))showWeaponSelect();else beginRun()};
+function startRoom(){enemies=[];projectiles=[];roomKills=0;bossSpawned=false;spawn=S.room%4===0?1:6+S.room*2;spawnClock=0;toast(S.room%4===0?"区域守卫现身":"第 "+S.room+" 室 · 亡者来袭");$("room").textContent=(S.room<=4?"冥河边境":"哀歌回廊")+" · 第 "+S.room+" 室"}
+const types=["冥河游魂","灰烬猎犬","失序亡者","悲鸣卫兵","深渊执刑者"];
+function spawnEnemy(boss=false){let edge=Math.floor(rand(0,4)),x=edge===0?-25:edge===1?w+25:rand(20,w-20),y=edge===2?-25:edge===3?h+25:rand(100,h-180),elite=boss||(!boss&&S.room>=3&&Math.random()<.16);let hp=boss?850+S.room*110:elite?115+S.room*18:40+S.room*9;enemies.push({x,y,r:boss?31:elite?19:13,hp,max:hp,speed:boss?48:elite?45+S.room*2:61+S.room*3,damage:boss?24:elite?17:9,boss,elite,name:boss?"冥河守门者":elite?"深渊精英":types[Math.floor(rand(0,types.length))],flash:0,phase:0})}
+function burst(x,y,col,n=6){for(let i=0;i<n;i++){let a=rand(0,Math.PI*2),v=rand(30,145);fx.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.2,.55),max:.55,col})}
+function target(){let t=null,d=S.range;for(let e of enemies){let z=Math.hypot(e.x-P.x,e.y-P.y);if(z<d){d=z;t=e}}return t}
+function attack(){if(!running||paused||P.cd>0)return;let e=target();if(!e)return;P.cd=S.attackRate;let a=Math.atan2(e.y-P.y,e.x-P.x);P.face=a;let sp=S.projectileSpeed||540;projectiles.push({x:P.x+Math.cos(a)*18,y:P.y+Math.sin(a)*18,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:S.weapon==="狩猎神弓"?4:6,life:S.range/sp+.1,dmg:S.damage,pierce:S.weapon==="狩猎神弓"?1:0});if(S.boons.includes("lightning")){e.hp-=14;e.flash=.15;burst(e.x,e.y,"#9fc7ff",7)}}
+$("attack").addEventListener("pointerdown",e=>{e.preventDefault();held=true;attack()});["pointerup","pointercancel","pointerleave"].forEach(n=>$("attack").addEventListener(n,()=>held=false));
+function setMove(e){let r=$("stick").getBoundingClientRect(),dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height/2,L=Math.hypot(dx,dy),m=Math.min(1,L/42);input={x:L?dx/L*m:0,y:L?dy/L*m:0};$("nub").style.transform=`translate(${input.x*37}px,${input.y*37}px)`}
+$("stick").addEventListener("pointerdown",e=>{$("stick").setPointerCapture(e.pointerId);setMove(e)});$("stick").addEventListener("pointermove",e=>{if(e.buttons)setMove(e)});function resetMove(){input={x:0,y:0};$("nub").style.transform="translate(0,0)"};["pointerup","pointercancel","lostpointercapture"].forEach(n=>$("stick").addEventListener(n,resetMove));
+$("dash").addEventListener("pointerdown",e=>{e.preventDefault();if(P.dash>0||!running)return;P.dash=.85;P.inv=.48;let dx=input.x,dy=input.y;if(!dx&&!dy){dx=Math.cos(P.face);dy=Math.sin(P.face)}P.x=clamp(P.x+dx*115,18,w-18);P.y=clamp(P.y+dy*115,85,h-160);burst(P.x,P.y,"#8eb8dc",9)});
+function hitPlayer(n){if(P.inv>0)return;S.hp-=n*(S.boons.includes("charm")?.8:1);P.inv=.65;shake=8;burst(P.x,P.y,"#ed7568",12);if(S.hp<=0)gameOver()}
+function levelUp(){S.level++;S.xp-=S.next;S.next=Math.floor(S.next*1.34);paused=true;let picks=[...gods].sort(()=>Math.random()-.5).slice(0,3);panel.innerHTML=`<div class="eyebrow">DIVINE BOON · LEVEL ${S.level}</div><h2>奥林匹斯的回响</h2><p>选择一项祝福，塑造本次冥界远征。</p>${picks.map((b,i)=>`<button class="pick" data-b="${i}"><b>${b[0]} · ${b[1]}</b><br><span class="muted">${b[2]}</span></button>`).join("")}`;overlay.classList.remove("hidden");panel.querySelectorAll("[data-b]").forEach(b=>b.onclick=()=>{let v=picks[+b.dataset.b];v[3]();S.boons.push(v[1]);paused=false;overlay.classList.add("hidden");toast(v[0]+" · "+v[1]);persist();last=performance.now();requestAnimationFrame(loop)})}
+function nextRoom(){if(S.room>=12){victory();return}S.room++;S.hp=Math.min(S.max,S.hp+14);startRoom();persist()}
+function gameOver(){running=false;persist();panel.innerHTML=`<div class="eyebrow">THE UNDERWORLD REMEMBERS</div><h1>你倒在冥河之畔</h1><p>抵达第 ${S.room} 室 · 击败 ${S.kills} 名亡者 · 等级 ${S.level}。</p><button class="primary" id="retry">继续挑战</button><button class="pick" id="wipe">清除本机存档并重新开始</button>`;overlay.classList.remove("hidden");$("retry").onclick=()=>{S.hp=S.max;running=true;startRoom();overlay.classList.add("hidden");last=performance.now();requestAnimationFrame(loop)};$("wipe").onclick=()=>{localStorage.removeItem("h3v2");location.reload()}}
+function victory(){running=false;persist();panel.innerHTML=`<div class="eyebrow">CHAPTER I · THE RIVER GATE</div><h1>冥河暂时沉默</h1><p>你击败了冥河守门者，完成了第一章战斗切片。击败敌人 ${S.kills} 名，达到等级 ${S.level}，获得祝福 ${S.boons.length} 项。</p><button class="primary" id="loopagain">开启新一轮远征</button><p class="muted">下一阶段将扩展剧情、地图、武器形态、神明联动和多周目内容。</p>`;overlay.classList.remove("hidden");$("loopagain").onclick=()=>{S.room=1;S.hp=S.max;S.kills=0;S.level=1;S.xp=0;S.next=32;S.boons=[];S.damage=weapons.find(x=>x.name===S.weapon)?.dmg||19;startRoom();overlay.classList.add("hidden");running=true;last=performance.now();requestAnimationFrame(loop)}}
+function update(dt){tick++;P.cd=Math.max(0,P.cd-dt);P.inv=Math.max(0,P.inv-dt);P.dash=Math.max(0,P.dash-dt);if(held)attack();P.x=clamp(P.x+input.x*P.speed*dt,18,w-18);P.y=clamp(P.y+input.y*P.speed*dt,85,h-160);
+spawnClock+=dt;if(spawn>0&&spawnClock>.9){spawnEnemy();spawn--;spawnClock=0;if(S.room%4===0&&spawn===0)bossSpawned=true}
+for(let e of enemies){let a=Math.atan2(P.y-e.y,P.x-e.x),d=Math.hypot(P.x-e.x,P.y-e.y),slow=S.boons.includes("frost")?.85:1;if(d>e.r+P.r+3){e.x+=Math.cos(a)*e.speed*slow*dt;e.y+=Math.sin(a)*e.speed*slow*dt}else hitPlayer(e.damage*dt*1.55);e.flash=Math.max(0,e.flash-dt);e.phase+=dt}
+for(let p of projectiles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;for(let e of enemies){if(e.hp>0&&Math.hypot(p.x-e.x,p.y-e.y)<e.r+p.r){e.hp-=p.dmg;e.flash=.12;burst(p.x,p.y,"#f3ce91",4);if(S.boons.includes("knockback")){let a=Math.atan2(e.y-P.y,e.x-P.x);e.x+=Math.cos(a)*27;e.y+=Math.sin(a)*27}if(p.pierce>0)p.pierce--;else p.life=0;break}}}
+projectiles=projectiles.filter(p=>p.life>0);let dead=enemies.filter(e=>e.hp<=0);for(let e of dead){S.kills++;roomKills++;S.xp+=e.boss?90:e.elite?25:13;S.coins+=e.boss?50:e.elite?9:2;burst(e.x,e.y,e.boss?"#e9b46e":"#a7a0bd",e.boss?28:10);if(S.boons.includes("regal")&&S.kills%5===0)S.hp=Math.min(S.max,S.hp+8)}enemies=enemies.filter(e=>e.hp>0);
+if(S.xp>=S.next)levelUp();if(spawn===0&&enemies.length===0){if(S.room%4===0){if(!bossSpawned){spawnEnemy(true);bossSpawned=true}else nextRoom()}else if(roomKills>=6+S.room*2)nextRoom();else spawn=1}
+for(let f of fx){f.x+=f.vx*dt;f.y+=f.vy*dt;f.life-=dt;f.vx*=.96;f.vy*=.96}fx=fx.filter(f=>f.life>0);
+$("hptext").textContent=`生命 ${Math.max(0,Math.ceil(S.hp))} / ${S.max}`;$("hp").style.width=clamp(S.hp/S.max*100,0,100)+"%";$("xptext").textContent=`等级 ${S.level} · 经验 ${S.xp}/${S.next}`;$("xp").style.width=S.xp/S.next*100+"%";$("room").textContent=`${S.room%4===0?"区域守卫":"冥河边境"} · 第 ${S.room} 室`}
+function draw(){g.save();if(shake>0){g.translate(rand(-shake,shake),rand(-shake,shake));shake*=.8}g.fillStyle="#15111d";g.fillRect(0,0,w,h);
+for(let y=0;y<h;y+=48){g.strokeStyle="rgba(202,160,115,.05)";g.beginPath();g.moveTo(0,y+Math.sin(y*.03)*5);g.lineTo(w,y);g.stroke()}
+for(let i=0;i<9;i++){let x=(i*131+tick*.13)%w;g.fillStyle="rgba(112,69,94,.10)";g.beginPath();g.ellipse(x,h*.52+Math.sin(i*3+tick*.002)*90,42,116,.4,0,7);g.fill()}
+for(let f of fx){g.globalAlpha=Math.max(0,f.life/f.max);g.fillStyle=f.col;g.beginPath();g.arc(f.x,f.y,2.5,0,7);g.fill()}g.globalAlpha=1;
+for(let p of projectiles){g.fillStyle=S.weapon==="狩猎神弓"?"#b9d7e7":"#f2d19a";g.shadowColor="#e7ad63";g.shadowBlur=12;g.beginPath();g.arc(p.x,p.y,p.r,0,7);g.fill();g.shadowBlur=0}
+for(let e of enemies){g.save();g.translate(e.x,e.y);g.fillStyle=e.flash?"#fff0d0":e.boss?"#a34d58":e.elite?"#bd665e":"#77758e";g.shadowColor=e.boss?"#db7768":"#8586b1";g.shadowBlur=e.boss?25:13;g.beginPath();g.arc(0,0,e.r,0,7);g.fill();g.shadowBlur=0;g.fillStyle="#f5c9a0";g.beginPath();g.arc(-5,-3,2.5,0,7);g.arc(5,-3,2.5,0,7);g.fill();g.fillStyle="#322638";g.fillRect(-e.r,-e.r-10,e.r*2,4);g.fillStyle=e.boss?"#e6b76b":"#d66c68";g.fillRect(-e.r,-e.r-10,e.r*2*clamp(e.hp/e.max,0,1),4);if(e.boss){g.fillStyle="#f2d9b5";g.font="11px system-ui";g.textAlign="center";g.fillText(e.name,0,-e.r-17)}g.restore()}
+g.save();g.translate(P.x,P.y);g.rotate(P.face);g.globalAlpha=P.inv>0&&Math.floor(tick/5)%2?.45:1;g.fillStyle="#e7c18a";g.shadowColor="#e1a45f";g.shadowBlur=18;g.beginPath();g.arc(0,0,P.r,0,7);g.fill();g.shadowBlur=0;g.fillStyle="#503342";g.beginPath();g.moveTo(-5,-13);g.lineTo(-15,-24);g.lineTo(2,-17);g.fill();g.fillStyle="#f5e4c6";g.fillRect(7,-3,S.weapon==="冥王长枪"?23:14,4);g.restore();g.restore()}
+function loop(t){if(!running)return;let dt=Math.min(.033,(t-last)/1000||0);last=t;if(!paused){update(dt);draw()}requestAnimationFrame(loop)}
+
+})();
+</script></body></html>
